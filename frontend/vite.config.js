@@ -8,14 +8,14 @@ export default defineConfig({
     server: {
         proxy: {
             '/api': {
-                target: 'https://al-kabah-uniform.vercel.app',
+                target: 'http://localhost:5000',
                 changeOrigin: true,
-                secure: true
+                secure: false
             },
             '/uploads': {
-                target: 'https://al-kabah-uniform.vercel.app',
+                target: 'http://localhost:5000',
                 changeOrigin: true,
-                secure: true
+                secure: false
             }
         }
     },

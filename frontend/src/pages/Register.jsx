@@ -47,15 +47,16 @@ const Register = () => {
             return setError('Please enter a valid email address first');
         }
 
+        const normalizedEmail = formData.email.trim().toLowerCase();
         setSendingOtp(true);
         try {
-            const res = await axios.post('/api/auth/register-otp', {
-                email: formData.email
+            await axios.post('/api/auth/register-otp', {
+                email: normalizedEmail
             });
-            setIsOtpSent(true);
             setSuccess('Verification code sent to your email!');
+            setIsOtpSent(true);
         } catch (err) {
-            const errorMsg = err.response?.data || 'Failed to send verification code';
+            const errorMsg = err.response?.data?.message || err.response?.data || 'Failed to send verification code';
             setError(errorMsg);
         } finally {
             setSendingOtp(false);

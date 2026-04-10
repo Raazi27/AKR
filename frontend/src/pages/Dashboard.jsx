@@ -188,51 +188,44 @@ const Dashboard = () => {
             </motion.div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-                {!isCustomer && (
+                {!isCustomer ? (
                     <>
-                        <motion.div variants={itemVariants}><DashboardCard title="Total Revenue" value={`₹${(stats.sales || 0).toLocaleString()}`} icon={<FiDollarSign size={24} />} color="emerald" trend="12.5" /></motion.div>
-                        <motion.div variants={itemVariants}><DashboardCard title="Active Customers" value={stats.customers} icon={<FiUsers size={24} />} color="blue" trend="4.3" /></motion.div>
+                        <motion.div variants={itemVariants}><DashboardCard title="Total Sales" value={`₹${(stats.sales || 0).toLocaleString()}`} icon={<FiDollarSign size={24} />} color="emerald" /></motion.div>
+                        <motion.div variants={itemVariants}><DashboardCard title="Total Purchases" value={`₹${(stats.purchases || 0).toLocaleString()}`} icon={<FiShoppingBag size={24} />} color="rose" /></motion.div>
+                        <motion.div variants={itemVariants}><DashboardCard title="Net Profit" value={`₹${(stats.profit || 0).toLocaleString()}`} icon={<FiBarChart2 size={24} />} color="blue" /></motion.div>
+                        <motion.div variants={itemVariants}><DashboardCard title="Pending Sales" value={stats.orders} icon={<FiDollarSign size={24} />} color="amber" /></motion.div>
                     </>
-                )}
-                {isCustomer && (
+                ) : (
                     <>
                         <motion.div variants={itemVariants}><DashboardCard title="Total Spent" value={`₹${(stats.sales || 0).toLocaleString()}`} icon={<FiDollarSign size={24} />} color="emerald" /></motion.div>
                         <motion.div variants={itemVariants}><DashboardCard title="Total Purchases" value={stats.totalPurchaseCount || 0} icon={<FiShoppingBag size={24} />} color="blue" /></motion.div>
+                        <motion.div variants={itemVariants}>
+                            <DashboardCard title="My Active Orders" value={stats.orders} icon={<FiScissors size={24} />} color="amber">
+                                <button
+                                    onClick={() => setIsRecentItemsModalOpen(true)}
+                                    className="mt-4 flex items-center gap-2 text-xs font-bold text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 transition-colors"
+                                >
+                                    <FiShoppingBag size={14} /> Recent Purchased Items
+                                </button>
+                            </DashboardCard>
+                        </motion.div>
+                        <motion.div variants={itemVariants}>
+                            <SpotlightCard className="h-full p-4 bg-white dark:bg-slate-800 border-white/20 dark:border-slate-700">
+                                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Top Purchases</h4>
+                                <div className="space-y-2">
+                                    {stats.productFrequency?.slice(0, 2).map((p, i) => (
+                                        <div key={i} className="flex justify-between items-center bg-slate-50 dark:bg-slate-900/50 p-2 rounded-lg">
+                                            <span className="text-xs font-medium text-slate-600 dark:text-slate-300 truncate mr-2">{p.name}</span>
+                                            <span className="bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 text-[10px] px-1.5 py-0.5 rounded-md">x{p.count}</span>
+                                        </div>
+                                    ))}
+                                    {(!stats.productFrequency || stats.productFrequency.length === 0) && (
+                                        <p className="text-[10px] text-slate-400 text-center py-2">No items purchased yet</p>
+                                    )}
+                                </div>
+                            </SpotlightCard>
+                        </motion.div>
                     </>
-                )}
-
-                <motion.div variants={itemVariants}>
-                    <DashboardCard title={isCustomer ? "My Active Orders" : "Pending Orders"} value={stats.orders} icon={<FiScissors size={24} />} color="amber" trend={!isCustomer ? "8.2" : null}>
-                        {isCustomer && (
-                            <button
-                                onClick={() => setIsRecentItemsModalOpen(true)}
-                                className="mt-4 flex items-center gap-2 text-xs font-bold text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 transition-colors"
-                            >
-                                <FiShoppingBag size={14} /> Recent Purchased Items
-                            </button>
-                        )}
-                    </DashboardCard>
-                </motion.div>
-
-                {!isCustomer ? (
-                    <motion.div variants={itemVariants}><DashboardCard title="Total Products" value={stats.products} icon={<FiShoppingBag size={24} />} color="violet" /></motion.div>
-                ) : (
-                    <motion.div variants={itemVariants}>
-                        <SpotlightCard className="h-full p-4 bg-white dark:bg-slate-800 border-white/20 dark:border-slate-700">
-                            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Top Purchases</h4>
-                            <div className="space-y-2">
-                                {stats.productFrequency?.slice(0, 2).map((p, i) => (
-                                    <div key={i} className="flex justify-between items-center bg-slate-50 dark:bg-slate-900/50 p-2 rounded-lg">
-                                        <span className="text-xs font-medium text-slate-600 dark:text-slate-300 truncate mr-2">{p.name}</span>
-                                        <span className="bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 text-[10px] px-1.5 py-0.5 rounded-md">x{p.count}</span>
-                                    </div>
-                                ))}
-                                {(!stats.productFrequency || stats.productFrequency.length === 0) && (
-                                    <p className="text-[10px] text-slate-400 text-center py-2">No items purchased yet</p>
-                                )}
-                            </div>
-                        </SpotlightCard>
-                    </motion.div>
                 )}
             </div>
 

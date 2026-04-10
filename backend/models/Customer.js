@@ -23,4 +23,11 @@ const customerSchema = new mongoose.Schema({
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
 });
 
+customerSchema.pre('save', function (next) {
+    if (this.email) {
+        this.email = this.email.trim().toLowerCase();
+    }
+    next();
+});
+
 export default mongoose.model('Customer', customerSchema);

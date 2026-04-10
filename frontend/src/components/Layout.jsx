@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
-import { FiHome, FiUsers, FiShoppingBag, FiScissors, FiDollarSign, FiBarChart2, FiMenu, FiX, FiLogOut, FiSettings, FiClock, FiSun, FiMoon } from 'react-icons/fi';
+import { FiHome, FiUsers, FiShoppingBag, FiScissors, FiDollarSign, FiBarChart2, FiMenu, FiX, FiLogOut, FiSettings, FiClock, FiSun, FiMoon, FiPackage, FiShoppingCart } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import DotPattern from './react-bits/DotPattern';
@@ -77,6 +77,8 @@ const Layout = () => {
         { name: 'Products', icon: <FiShoppingBag />, path: '/products' },
         { name: 'Customers', icon: <FiUsers />, path: '/customers', role: ['admin'] },
         { name: 'Billing', icon: <FiDollarSign />, path: '/billing', role: ['admin', 'staff'] },
+        { name: 'Purchase Bills', icon: <FiPackage />, path: '/purchase-bills', role: ['admin', 'staff'] },
+        { name: 'Sale Bills', icon: <FiShoppingCart />, path: '/sale-bills', role: ['admin', 'staff'] },
         { name: 'Reports', icon: <FiBarChart2 />, path: '/reports', role: ['admin'] },
         { name: 'Admin Users', icon: <FiSettings />, path: '/users', role: ['admin'] },
     ];

@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
-import { FiHome, FiShoppingBag, FiClock, FiUser, FiLogOut, FiSun, FiMoon, FiMenu, FiX } from 'react-icons/fi';
+import { FiHome, FiShoppingBag, FiClock, FiUser, FiLogOut, FiSun, FiMoon, FiMenu, FiX, FiShoppingCart } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
+import { useCart } from '../context/CartContext';
 import DotPattern from './react-bits/DotPattern';
 
 const CustomerLayout = () => {
     const { user, logout } = useAuth();
+    const { cart } = useCart();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [scrolled, setScrolled] = useState(false);
     const navigate = useNavigate();
@@ -115,6 +117,18 @@ const CustomerLayout = () => {
                             {theme === 'dark' ? <FiMoon size={20} /> : <FiSun size={20} />}
                         </button>
 
+                        <button
+                            onClick={() => navigate('/checkout')}
+                            className="p-2.5 rounded-xl bg-white dark:bg-[#1a2332] text-teal-600 dark:text-teal-400 border border-teal-300/30 dark:border-teal-700/30 hover:border-teal-500 shadow-sm transition-all relative"
+                        >
+                            <FiShoppingCart size={20} />
+                            {cart.length > 0 && (
+                                <span className="absolute -top-1 -right-1 w-5 h-5 bg-teal-500 text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-white dark:border-[#1a2332] animate-bounce">
+                                    {cart.length}
+                                </span>
+                            )}
+                        </button>
+
                         <div className="h-8 w-[1px] bg-teal-300/30 mx-1 hidden sm:block"></div>
 
                         {/* User Profile */}
@@ -214,7 +228,7 @@ const CustomerLayout = () => {
                 <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-12 text-center md:text-left">
                     <div>
                         <h2 className="text-xl font-black text-teal-600 dark:text-teal-400 uppercase tracking-[0.3em]">Al-Kabah</h2>
-                        <p className="text-sm text-stone-500 dark:text-stone-400 mt-2 font-bold tracking-wider italic">Excellence in every stitch auth controller2014.</p>
+                        <p className="text-sm text-stone-500 dark:text-stone-400 mt-2 font-bold tracking-wider italic">Excellence in every stitch since 2014.</p>
                     </div>
                     <div className="flex gap-12 text-[10px] font-black uppercase tracking-[0.2em] text-teal-600 dark:text-teal-500">
                         <Link to="/" className="hover:text-teal-400 transition-colors">Concierge</Link>

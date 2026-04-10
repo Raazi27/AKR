@@ -6,6 +6,8 @@ import axios from 'axios';
 import { FiTrash2, FiMinus, FiPlus, FiArrowLeft } from 'react-icons/fi';
 import { motion } from 'framer-motion';
 
+const API_BASE = window.location.hostname === 'localhost' ? '' : `http://${window.location.hostname}:5000`;
+
 const Checkout = () => {
     const { cart, removeFromCart, updateQuantity, clearCart } = useCart();
     const { user } = useAuth();
@@ -27,24 +29,27 @@ const Checkout = () => {
 
         try {
             const token = localStorage.getItem('token');
-            const customerId = user.role === 'customer' ? user._id : null;
+            
+            // Safety check for user name
+            const userName = user?.name || user?.email || 'Customer';
 
-            await axios.post('/api/invoices', {
+            const payload = {
+                customerName: userName,
+                customerPhone: user?.phone || '',
                 items: cart.map(item => ({
-                    productId: item._id, // Products page sends _id
+                    productId: item._id,
                     name: item.name,
-                    price: item.price,
-                    quantity: item.quantity
+                    unitPrice: Number(item.price),
+                    quantity: Number(item.quantity),
+                    total: Number(item.price) * Number(item.quantity)
                 })),
-                subtotal,
-                discountPercentage,
-                discountAmount,
-                tax,
-                grandTotal: total,
                 paymentMethod,
-                customerId: user.role === 'customer' ? user.id || user._id : null,
-                customerName: user.name
-            }, {
+                status: 'Pending'
+            };
+
+            console.log('Sending Bill Payload:', payload);
+
+            await axios.post(`${API_BASE}/api/sale-bills`, payload, {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
@@ -52,7 +57,11 @@ const Checkout = () => {
             alert('Order Placed Successfully!');
             navigate('/products');
         } catch (err) {
-            alert('Checkout Failed: ' + (err.response?.data?.message || err.message));
+            console.error('Checkout error:', err.response?.data);
+            const errorMsg = typeof err.response?.data === 'string' 
+                ? err.response.data 
+                : err.response?.data?.message || err.message;
+            alert('Checkout Failed: ' + errorMsg);
         } finally {
             setLoading(false);
         }

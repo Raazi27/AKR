@@ -12,7 +12,7 @@ pnpm-lock.yaml
 .env.production.local
 
 # Build Output
-dist/
+#/
 build/
 out/
 .next/

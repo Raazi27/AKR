@@ -10,11 +10,12 @@ import mongoose from 'mongoose';
 import authRoutes from './routes/auth.js';
 import customerRoutes from './routes/customers.js';
 import productRoutes from './routes/products.js';
-import invoiceRoutes from './routes/invoices.js';
 import tailoringRoutes from './routes/tailoring.js';
 import userRoutes from './routes/users.js';
 import statsRoutes from './routes/stats.js';
 import otpRoutes from './routes/otp.js';
+import purchaseBillRoutes from './routes/purchaseBills.js';
+import saleBillRoutes from './routes/saleBills.js';
 
 import connectDB from './config/db.js';
 
@@ -66,11 +67,12 @@ app.use('/uploads', express.static('uploads'));
 app.use('/api/auth', authRoutes);
 app.use('/api/customers', customerRoutes);
 app.use('/api/products', productRoutes);
-app.use('/api/invoices', invoiceRoutes);
 app.use('/api/tailoring', tailoringRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/otp', otpRoutes);
+app.use('/api/purchase-bills', purchaseBillRoutes);
+app.use('/api/sale-bills', saleBillRoutes);
 
 
 // ======================

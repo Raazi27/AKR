@@ -18,12 +18,14 @@ const resolveMx = promisify(dns.resolveMx);
 // In-memory store for registration OTPs (Email -> {otp, expiresAt})
 const registrationOtpStore = new Map();
 
-// Email Transporter
+// Email Transporter (Direct SMTP for better stability)
 const transporter = nodemailer.createTransport({
-    service: 'gmail',
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true,
     auth: {
         user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
+        pass: process.env.EMAIL_PASS ? process.env.EMAIL_PASS.replace(/\s/g, '') : ''
     }
 });
 
@@ -129,7 +131,8 @@ router.post('/register-otp', async (req, res) => {
         transporter.sendMail(mailOptions, (err, info) => {
             if (err) {
                 console.error('Email sending error:', err);
-                return res.status(500).send('Error sending verification email');
+                // Return 500 for a real error to satisfy 'real-time' requirement
+                return res.status(500).send('Email delivery failed. Please check your SMTP configuration or try again later.');
             }
             res.send('Verification code sent to your email');
         });
@@ -319,8 +322,10 @@ router.post('/forgot-password', async (req, res) => {
 
         transporter.sendMail(mailOptions, (err, info) => {
             if (err) {
-                console.error(err);
-                return res.status(500).send('Error sending email');
+                console.error('Forgot Password Email error:', err);
+                // [DEBUG LOG] Still print OTP to console so developer is not locked out
+                console.log(`\n[DEBUG] Password Reset OTP for ${email}: ${otp}\n`);
+                return res.status(500).send('Error sending email. Check backend logs.');
             }
             res.send('OTP sent to your email.');
         });
@@ -399,8 +404,11 @@ router.put('/profile', upload.single('profilePicture'), async (req, res) => {
         if (!user) return res.status(404).send('User not found');
 
         // Check if email is being updated and if it's already taken
-        if (email && email !== user.email) {
-            const existingUser = await User.findOne({ email });
+        if (email && email.trim().toLowerCase() !== user.email) {
+            const existingUser = await User.findOne({ 
+                email: email.trim().toLowerCase(), 
+                _id: { $ne: verified._id } 
+            });
             if (existingUser) {
                 return res.status(400).send('Email already exists');
             }

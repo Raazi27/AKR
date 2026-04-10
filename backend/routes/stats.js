@@ -1,5 +1,6 @@
 import express from 'express';
-import Invoice from '../models/Invoice.js';
+import SaleBill from '../models/SaleBill.js';
+import PurchaseBill from '../models/PurchaseBill.js';
 import TailoringOrder from '../models/TailoringOrder.js';
 import Customer from '../models/Customer.js';
 import Product from '../models/Product.js';
@@ -10,34 +11,40 @@ const router = express.Router();
 // Get Dashboard Stats
 router.get('/dashboard', verifyToken, async (req, res) => {
     try {
-        const isAdmin = req.user.role === 'admin';
         const isCustomer = req.user.role === 'customer';
 
         let stats = {
             sales: 0,
+            purchases: 0,
+            profit: 0,
             customers: 0,
             orders: 0,
             products: 0,
             recentActivity: [],
             upcomingDeliveries: [],
             recentItems: [],
-            upcomingProducts: []
+            upcomingProducts: [],
+            totalPurchaseCount: 0,
+            productFrequency: []
         };
 
         if (isCustomer) {
             // Find customer record
             const customer = await Customer.findOne({ userId: req.user._id });
             if (customer) {
-                // Total Spent
-                const invoices = await Invoice.find({ customerId: customer._id });
-                stats.sales = invoices.reduce((acc, curr) => acc + curr.grandTotal, 0);
-
-                // Purchase History Stats
-                stats.totalPurchaseCount = invoices.length;
+                // Total Spent (Sales to this customer)
+                const saleBills = await SaleBill.find({ 
+                    $or: [
+                        { customerPhone: customer.phone },
+                        { customerName: customer.name }
+                    ]
+                });
+                stats.sales = saleBills.reduce((acc, curr) => acc + (curr.grandTotal || 0), 0);
+                stats.totalPurchaseCount = saleBills.length;
 
                 const frequencies = {};
-                invoices.forEach(inv => {
-                    inv.items.forEach(item => {
+                saleBills.forEach(bill => {
+                    bill.items.forEach(item => {
                         frequencies[item.name] = (frequencies[item.name] || 0) + item.quantity;
                     });
                 });
@@ -47,31 +54,26 @@ router.get('/dashboard', verifyToken, async (req, res) => {
                     .sort((a, b) => b.count - a.count)
                     .slice(0, 5);
 
-                // Recent Unique Items with Context for Feedback
-                const recentInvoicesWithItems = await Invoice.find({
-                    $or: [
-                        { customerId: customer._id },
-                        { customerId: customer.userId } // Fallback for mismatched IDs
-                    ]
-                })
-                    .sort({ invoiceDate: -1 })
-                    .limit(20);
-
-                // Recent Unique Items with Context for Feedback
+                // Recent Unique Items for Feedback
                 const recentItems = [];
                 const seenItems = new Set();
 
-                recentInvoicesWithItems.forEach(inv => {
-                    inv.items.forEach(item => {
+                const recentBillsWithItems = await SaleBill.find({
+                    $or: [
+                        { customerPhone: customer.phone },
+                        { customerName: customer.name }
+                    ]
+                }).sort({ billDate: -1 }).limit(20);
+
+                recentBillsWithItems.forEach(bill => {
+                    bill.items.forEach(item => {
                         if (!seenItems.has(item.name)) {
                             recentItems.push({
                                 name: item.name,
-                                orderId: inv.invoiceId,
-                                mongoId: inv._id,
-                                status: inv.status,
-                                feedback: inv.feedback,
-                                rating: inv.rating,
-                                date: inv.invoiceDate
+                                orderId: bill.billNo,
+                                mongoId: bill._id,
+                                status: bill.status,
+                                date: bill.billDate
                             });
                             seenItems.add(item.name);
                         }
@@ -79,69 +81,76 @@ router.get('/dashboard', verifyToken, async (req, res) => {
                 });
                 stats.recentItems = recentItems.slice(0, 10);
 
-                // My Active Orders
-                // Include both Invoices and Tailoring orders for "Active Orders" count if needed
-                const pendingInvoices = await Invoice.countDocuments({ customerId: customer._id, status: { $in: ['Pending', 'Paid'] } });
+                // My Active Orders (SaleBills Unpaid/Partial + Recent Paid + Tailoring)
+                const sevenDaysAgo = new Date();
+                sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+                const pendingSales = await SaleBill.countDocuments({ 
+                    $and: [
+                        { $or: [{ customerPhone: customer.phone }, { customerName: customer.name }] },
+                        { $or: [
+                            { status: { $in: ['Unpaid', 'Partial'] } },
+                            { status: 'Paid', billDate: { $gte: sevenDaysAgo } }
+                        ]}
+                    ]
+                });
                 const pendingTailoring = await TailoringOrder.countDocuments({ customerId: customer._id, status: { $ne: 'Delivered' } });
-                stats.orders = pendingInvoices + pendingTailoring;
+                stats.orders = pendingSales + pendingTailoring;
 
                 // Recent Activity
-                const recentInvoices = await Invoice.find({ customerId: customer._id })
-                    .sort({ invoiceDate: -1 })
-                    .limit(3);
+                const recentSales = await SaleBill.find({ 
+                    $or: [{ customerPhone: customer.phone }, { customerName: customer.name }] 
+                }).sort({ billDate: -1 }).limit(3);
 
                 const recentTailoring = await TailoringOrder.find({ customerId: customer._id })
-                    .sort({ createdAt: -1 })
-                    .limit(3);
+                    .sort({ createdAt: -1 }).limit(3);
 
-                const activity = [
-                    ...recentInvoices.map(i => ({ message: `Order #${i.invoiceId} Status: ${i.status}`, time: i.invoiceDate })),
+                stats.recentActivity = [
+                    ...recentSales.map(s => ({ message: `Sale Bill #${s.billNo} Status: ${s.status}`, time: s.billDate })),
                     ...recentTailoring.map(o => ({ message: `Tailoring Order Status: ${o.status}`, time: o.createdAt }))
                 ].sort((a, b) => b.time - a.time).slice(0, 5);
 
-                stats.recentActivity = activity;
-
                 // Upcoming Deliveries
-                const upcoming = await TailoringOrder.find({
+                stats.upcomingDeliveries = await TailoringOrder.find({
                     customerId: customer._id,
                     status: { $ne: 'Delivered' },
                     deliveryDate: { $gte: new Date() }
                 }).sort({ deliveryDate: 1 }).limit(3);
-                stats.upcomingDeliveries = upcoming;
 
-                // Upcoming Products
-                const upcomingProducts = await Product.find({ isUpcoming: true }).sort({ releaseDate: 1 }).limit(5);
-                stats.upcomingProducts = upcomingProducts;
+                stats.upcomingProducts = await Product.find({ isUpcoming: true }).sort({ releaseDate: 1 }).limit(5);
             }
         } else {
             // Admin/Staff Stats
-            const invoices = await Invoice.find({});
-            stats.sales = invoices.reduce((acc, curr) => acc + curr.grandTotal, 0);
+            const saleBills = await SaleBill.find({});
+            const purchaseBills = await PurchaseBill.find({});
+
+            const totalSales = saleBills.reduce((acc, curr) => acc + (curr.grandTotal || 0), 0);
+            const totalPurchases = purchaseBills.reduce((acc, curr) => acc + (curr.grandTotal || 0), 0);
+
+            stats.sales = totalSales;
+            stats.purchases = totalPurchases;
+            stats.profit = totalSales - totalPurchases;
             stats.customers = await Customer.countDocuments();
-            stats.orders = await TailoringOrder.countDocuments({ status: 'Pending' });
+            stats.orders = await SaleBill.countDocuments({ status: { $in: ['Unpaid', 'Partial'] } });
             stats.products = await Product.countDocuments();
 
             // Recent Activity
-            const recentInvoices = await Invoice.find({}).sort({ invoiceDate: -1 }).limit(3).populate('customerId');
+            const recentSales = await SaleBill.find({}).sort({ billDate: -1 }).limit(3);
+            const recentPurchases = await PurchaseBill.find({}).sort({ billDate: -1 }).limit(3);
             const recentOrders = await TailoringOrder.find({}).sort({ createdAt: -1 }).limit(3).populate('customerId');
 
-            const activity = [
-                ...recentInvoices.map(i => ({ message: `New Invoice #${i.invoiceId} generated for ${i.customerId?.name || 'Guest'}`, time: i.invoiceDate })),
+            stats.recentActivity = [
+                ...recentSales.map(s => ({ message: `New Sale #${s.billNo} for ${s.customerName}`, time: s.billDate })),
+                ...recentPurchases.map(p => ({ message: `New Purchase #${p.billNo} from ${p.supplierName}`, time: p.billDate })),
                 ...recentOrders.map(o => ({ message: `New Tailoring Order for ${o.customerId?.name || 'Customer'}`, time: o.createdAt }))
             ].sort((a, b) => b.time - a.time).slice(0, 5);
 
-            stats.recentActivity = activity;
-
-            // Upcoming Deliveries (Orders with future delivery date)
-            const upcoming = await TailoringOrder.find({
+            stats.upcomingDeliveries = await TailoringOrder.find({
                 status: { $ne: 'Delivered' },
                 deliveryDate: { $gte: new Date() }
             }).sort({ deliveryDate: 1 }).limit(5).populate('customerId');
-            stats.upcomingDeliveries = upcoming;
 
-            // Upcoming Products
-            const upcomingProducts = await Product.find({ isUpcoming: true }).sort({ releaseDate: 1 }).limit(10);
-            stats.upcomingProducts = upcomingProducts;
+            stats.upcomingProducts = await Product.find({ isUpcoming: true }).sort({ releaseDate: 1 }).limit(10);
         }
 
         res.json(stats);
@@ -154,19 +163,17 @@ router.get('/dashboard', verifyToken, async (req, res) => {
 // Get Reports Data
 router.get('/reports', verifyToken, isAdmin, async (req, res) => {
     try {
-        // Revenue Analytics (last 6 months)
         const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
         const currentMonth = new Date().getMonth();
 
-        // Simplified monthly aggregation for this year
-        const invoices = await Invoice.find({
-            invoiceDate: { $gte: new Date(new Date().getFullYear(), 0, 1) }
+        const saleBills = await SaleBill.find({
+            billDate: { $gte: new Date(new Date().getFullYear(), 0, 1) }
         });
 
         const monthlyRevenue = Array(12).fill(0);
-        invoices.forEach(inv => {
-            const m = new Date(inv.invoiceDate).getMonth();
-            monthlyRevenue[m] += inv.grandTotal;
+        saleBills.forEach(bill => {
+            const m = new Date(bill.billDate).getMonth();
+            monthlyRevenue[m] += (bill.grandTotal || 0);
         });
 
         const labels = [];
@@ -177,29 +184,23 @@ router.get('/reports', verifyToken, isAdmin, async (req, res) => {
             data.push(monthlyRevenue[m]);
         }
 
-        // Sales by Category
-        // Note: Currently TailoringOrder has items as [String]. We'd need to aggregate these.
-        // For now, let's just count instances of items.
-        const allOrders = await TailoringOrder.find({});
+        // Sales by Category (Aggregating from Tailoring for consistency or SaleBill items)
+        const allTailoring = await TailoringOrder.find({});
         const categories = {};
-        allOrders.forEach(o => {
+        allTailoring.forEach(o => {
             o.items.forEach(item => {
                 categories[item] = (categories[item] || 0) + 1;
             });
         });
 
-        const catLabels = Object.keys(categories);
-        const catData = Object.values(categories);
-
-        // Recent Transactions
-        const recentTransactions = await Invoice.find({})
-            .sort({ invoiceDate: -1 })
-            .limit(10)
-            .populate('customerId');
+        // Recent Transactions (Sale Bills)
+        const recentTransactions = await SaleBill.find({})
+            .sort({ billDate: -1 })
+            .limit(10);
 
         res.json({
             revenueAnalytics: { labels, data },
-            categoryData: { labels: catLabels, data: catData },
+            categoryData: { labels: Object.keys(categories), data: Object.values(categories) },
             recentTransactions
         });
     } catch (err) {
@@ -211,7 +212,8 @@ router.get('/reports', verifyToken, isAdmin, async (req, res) => {
 // Reset All Reports Data
 router.delete('/reset', verifyToken, isAdmin, async (req, res) => {
     try {
-        await Invoice.deleteMany({});
+        await SaleBill.deleteMany({});
+        await PurchaseBill.deleteMany({});
         await TailoringOrder.deleteMany({});
         res.json({ message: 'All reports data has been reset successfully.' });
     } catch (err) {
@@ -224,40 +226,37 @@ router.delete('/reset', verifyToken, isAdmin, async (req, res) => {
 router.get('/export', verifyToken, isAdmin, async (req, res) => {
     try {
         const { month, year } = req.query;
-        if (!month || !year) {
-            return res.status(400).send('Month and year are required.');
-        }
+        if (!month || !year) return res.status(400).send('Month and year are required.');
 
         const startDate = new Date(year, month - 1, 1);
         const endDate = new Date(year, month, 0, 23, 59, 59);
 
-        const invoices = await Invoice.find({
-            invoiceDate: { $gte: startDate, $lte: endDate }
-        }).populate('customerId');
+        const bills = await SaleBill.find({
+            billDate: { $gte: startDate, $lte: endDate }
+        });
 
-        // Simple CSV generation
-        const header = ['Invoice ID', 'Date', 'Customer', 'Items', 'Grand Total', 'Payment Method', 'Status'];
+        const header = ['Bill No', 'Date', 'Customer', 'Items', 'Subtotal', 'GST', 'Grand Total', 'Payment', 'Status'];
         const csvRows = [header.join(',')];
 
-        invoices.forEach(inv => {
-            const items = inv.items.map(item => `${item.name}(${item.quantity})`).join('; ');
+        bills.forEach(b => {
+            const items = b.items.map(i => `${i.name}(${i.quantity})`).join('; ');
             const row = [
-                inv.invoiceId,
-                new Date(inv.invoiceDate).toLocaleDateString(),
-                inv.customerId?.name || 'Guest',
+                b.billNo,
+                new Date(b.billDate).toLocaleDateString(),
+                b.customerName,
                 `"${items}"`,
-                inv.grandTotal,
-                inv.paymentMethod,
-                inv.status
+                b.subtotal,
+                b.gstAmount,
+                b.grandTotal,
+                b.paymentMethod,
+                b.status
             ];
             csvRows.push(row.join(','));
         });
 
-        const csvContent = csvRows.join('\n');
         res.setHeader('Content-Type', 'text/csv');
-        res.setHeader('Content-Disposition', `attachment; filename=Report_${year}_${month}.csv`);
-        res.status(200).send(csvContent);
-
+        res.setHeader('Content-Disposition', `attachment; filename=SalesReport_${year}_${month}.csv`);
+        res.status(200).send(csvRows.join('\n'));
     } catch (err) {
         console.error(err);
         res.status(500).send(err.message);
