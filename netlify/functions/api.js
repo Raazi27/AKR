@@ -7,10 +7,12 @@ let cachedConn = null;
 export const handler = async (event, context) => {
     // Make sure to wait for the database connection
     if (!cachedConn) {
-        cachedConn = await connectDB();
+        const dbConnector = connectDB.default || connectDB;
+        cachedConn = await dbConnector();
     }
     
     // serverless-http handles the conversion between Netlify events and Express req/res
-    const serverlessHandler = serverless(app);
+    const expressApp = app.default || app;
+    const serverlessHandler = serverless(expressApp);
     return serverlessHandler(event, context);
 };
