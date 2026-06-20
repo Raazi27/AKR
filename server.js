@@ -67,15 +67,15 @@ app.use(express.static('dist'));
 // API Routes
 // ======================
 
-app.use('/api/auth', authRoutes);
-app.use('/api/customers', customerRoutes);
-app.use('/api/products', productRoutes);
-app.use('/api/tailoring', tailoringRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/stats', statsRoutes);
-app.use('/api/otp', otpRoutes);
-app.use('/api/purchase-bills', purchaseBillRoutes);
-app.use('/api/sale-bills', saleBillRoutes);
+app.use('/api/auth', authRoutes.default || authRoutes);
+app.use('/api/customers', customerRoutes.default || customerRoutes);
+app.use('/api/products', productRoutes.default || productRoutes);
+app.use('/api/tailoring', tailoringRoutes.default || tailoringRoutes);
+app.use('/api/users', userRoutes.default || userRoutes);
+app.use('/api/stats', statsRoutes.default || statsRoutes);
+app.use('/api/otp', otpRoutes.default || otpRoutes);
+app.use('/api/purchase-bills', purchaseBillRoutes.default || purchaseBillRoutes);
+app.use('/api/sale-bills', saleBillRoutes.default || saleBillRoutes);
 
 
 // ======================
