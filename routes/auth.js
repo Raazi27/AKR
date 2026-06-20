@@ -1,17 +1,21 @@
 import express from 'express';
 import dotenv from 'dotenv';
 dotenv.config();
-import User from '../models/User.js';
+import UserImport from '../models/User.js';
 import jwt from 'jsonwebtoken';
 import multer from 'multer';
 import path from 'path';
 import nodemailer from 'nodemailer';
 import otpGenerator from 'otp-generator';
 import bcrypt from 'bcryptjs';
-import Customer from '../models/Customer.js';
-import Counter from '../models/Counter.js';
+import CustomerImport from '../models/Customer.js';
+import CounterImport from '../models/Counter.js';
 import dns from 'dns';
 import { promisify } from 'util';
+
+const User = UserImport.default || UserImport;
+const Customer = CustomerImport.default || CustomerImport;
+const Counter = CounterImport.default || CounterImport;
 
 const resolveMx = promisify(dns.resolveMx);
 
