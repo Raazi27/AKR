@@ -15,7 +15,7 @@ export const verifyToken = (req, res, next) => {
 
 export const isAdmin = (req, res, next) => {
     console.log(`[AUTH] isAdmin check for user: ${req.user._id}, role: ${req.user.role}`);
-    if (req.user.role !== 'admin') return res.status(403).send('Access Denied: Admin Only');
+    if (req.user.role !== 'admin' && req.user.role !== 'staff') return res.status(403).send('Access Denied: Admin or Staff Only');
     next();
 };
 

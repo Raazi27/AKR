@@ -21,7 +21,7 @@ const Products = () => {
     const [editingId, setEditingId] = useState(null);
     const [selectedFile, setSelectedFile] = useState(null);
     const [previewUrl, setPreviewUrl] = useState(null);
-    const API_BASE = window.location.hostname === 'localhost' ? '' : `http://${window.location.hostname}:5000`;
+    const API_BASE = import.meta.env.VITE_API_BASE || '';
     const [formData, setFormData] = useState({
         name: '',
         school: '',
@@ -79,7 +79,10 @@ const Products = () => {
             }
             closeModal();
         } catch (err) {
-            alert('Failed to save product: ' + (err.response?.data || err.message));
+            const errorMsg = typeof err.response?.data === 'string' 
+                ? err.response.data 
+                : (err.response?.data?.message || err.message);
+            alert('Failed to save product: ' + errorMsg);
         }
     };
 
@@ -110,7 +113,7 @@ const Products = () => {
             releaseDate: product.releaseDate ? new Date(product.releaseDate).toISOString().split('T')[0] : ''
         });
         setEditingId(product._id);
-        setPreviewUrl(product.image ? `${API_BASE}${product.image}` : null);
+        setPreviewUrl(product.image ? (product.image.startsWith('http') || product.image.startsWith('data:') ? product.image : `${API_BASE}${product.image}`) : null);
         setIsModalOpen(true);
     };
 
@@ -177,7 +180,7 @@ const Products = () => {
                             <div className="p-6">
                                 <div className="w-full h-48 rounded-2xl overflow-hidden bg-slate-100 dark:bg-black mb-4 relative">
                                     {product.image ? (
-                                        <img src={`${API_BASE}${product.image}`} alt={product.name} className="w-full h-full object-cover" />
+                                        <img src={product.image.startsWith('http') || product.image.startsWith('data:') ? product.image : `${API_BASE}${product.image}`} alt={product.name} className="w-full h-full object-cover" />
                                     ) : (
                                         <div className="w-full h-full flex items-center justify-center text-stone-300"><FiTag size={40} /></div>
                                     )}

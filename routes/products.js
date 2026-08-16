@@ -1,31 +1,42 @@
 import express from 'express';
+import path from 'path';
+import fs from 'fs';
+import multer from 'multer';
+import bwipjs from 'bwip-js';
 import Product from '../models/Product.js';
 import Counter from '../models/Counter.js';
-import bwipjs from 'bwip-js';
-import multer from 'multer';
-import path from 'path';
-import { verifyToken, isAdmin, isBilling } from '../middleware/auth.js';
+import { verifyToken, isAdmin } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Multer Config
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, 'uploads/products/');
-    },
-    filename: (req, file, cb) => {
-        cb(null, Date.now() + path.extname(file.originalname));
+// Multer Config (Memory Storage for serverless & disk compatibility)
+const upload = multer({ storage: multer.memoryStorage() });
+
+// Helper to process uploaded file safely on both local server and serverless environments (Netlify)
+const processUploadedFile = (file) => {
+    if (!file) return '';
+    try {
+        const uploadDir = 'uploads/products/';
+        if (!fs.existsSync(uploadDir)) {
+            fs.mkdirSync(uploadDir, { recursive: true });
+        }
+        const filename = Date.now() + path.extname(file.originalname);
+        const filepath = path.join(uploadDir, filename);
+        fs.writeFileSync(filepath, file.buffer);
+        return `/uploads/products/${filename}`;
+    } catch (e) {
+        // Fallback for read-only serverless environment (Netlify Functions)
+        return `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
     }
-});
-const upload = multer({ storage });
+};
 
 // Add Product
 router.post('/', verifyToken, isAdmin, upload.single('image'), async (req, res) => {
     console.log('[DEBUG] POST /api/products - Body:', req.body);
-    console.log('[DEBUG] POST /api/products - File:', req.file);
+    console.log('[DEBUG] POST /api/products - File:', req.file ? req.file.originalname : 'None');
     try {
         const { name, school, category, subCategory, size, price, stock, lowStockAlert, isUpcoming, releaseDate } = req.body;
-        const image = req.file ? `/uploads/products/${req.file.filename}` : '';
+        const image = processUploadedFile(req.file);
 
         // Generate Product ID
         try {
@@ -39,13 +50,24 @@ router.post('/', verifyToken, isAdmin, upload.single('image'), async (req, res) 
         const barcode = productId;
 
         const product = new Product({
-            productId, barcode, name, school, category, subCategory, image, size, price, stock, lowStockAlert,
+            productId,
+            barcode,
+            name,
+            school: school || '',
+            category: category || 'Uniform',
+            subCategory: subCategory || '',
+            image,
+            size,
+            price: Number(price),
+            stock: Number(stock) || 0,
+            lowStockAlert: Number(lowStockAlert) || 10,
             isUpcoming: isUpcoming === 'true' || isUpcoming === true,
             releaseDate: releaseDate || null
         });
         await product.save();
         res.status(201).json(product);
     } catch (err) {
+        console.error('[ERROR] POST /api/products failed:', err);
         res.status(400).send(err.message);
     }
 });
@@ -85,7 +107,7 @@ router.put('/:id', verifyToken, isAdmin, upload.single('image'), async (req, res
     try {
         const updateData = { ...req.body };
         if (req.file) {
-            updateData.image = `/uploads/products/${req.file.filename}`;
+            updateData.image = processUploadedFile(req.file);
         }
 
         // Handle boolean conversion if coming from FormData

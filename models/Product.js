@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 const productSchema = new mongoose.Schema({
     productId: { type: String, unique: true },
     name: { type: String, required: true },
-    school: { type: String, required: true },
+    school: { type: String, required: false, default: '' },
     category: { type: String, required: true, enum: ['Uniform', 'Fabric', 'Accessories'] },
     subCategory: { type: String },
     image: { type: String },

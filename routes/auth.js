@@ -80,15 +80,7 @@ const verifyEmailDomain = async (email) => {
 const router = express.Router();
 
 // Multer Config
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, 'uploads/');
-    },
-    filename: (req, file, cb) => {
-        cb(null, `${Date.now()}-${file.originalname}`);
-    }
-});
-const upload = multer({ storage });
+const upload = multer({ storage: multer.memoryStorage() });
 
 
 // Route: Request OTP for Registration
